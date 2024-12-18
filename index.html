@@ -81,12 +81,20 @@
             try {
                 stopAllOnTimeProcedures();
                 statusElement.innerText = 'ステータス: 作動中';
-                getTimes();
+
+                // getTimesの結果をチェックする
+                const success = getTimes();
+                if (!success) {
+                    throw new Error("時間の設定に問題があり、処理を続行できません。");
+                }
+
                 alert("AutoChimeSystemを開始しました。\n処理を続けるにはOKボタンを押してください。\n停止したい場合は停止ボタンを押してください。");
             } catch (e) {
-                alert("エラーが発生しました: " + e.message);
+                alert("エラーが発生しました: " + e.message + "\n時間もう一度設定し直してください。");
+                statusElement.innerText = 'ステータス: 停止中 (エラー)';
             }
         }
+
 
         function ForceStopButton() {
             try {
@@ -96,10 +104,14 @@
                 resetVariables();
                 resetUI();
                 alert("AutoChimeSystemを停止しました。\n初期状態に戻します。");
+
+                // ページをリロードする
+                location.reload();
             } catch (e) {
                 console.error("エラーが発生しました: ", e);
             }
         }
+
 
         function resetVariables() {
             try {
@@ -169,23 +181,16 @@
                     }
                 });
 
-                // デバッグメッセージ
-                timeArray.forEach((timeObj, index) => {
-                    const timeInputElement = document.getElementById(timeInputs[index]);
-                    const labelText = timeInputElement.getAttribute('data-label');
-
-                    if (timeObj) {
-                        console.log(`${labelText}: ${timeObj.date.toLocaleTimeString()}, id: ${timeObj.id}`);
-                    } else {
-                        console.log(`${labelText}: 有効な時間が設定されていません`);
-                    }
-                });
-
+                // エラーがなければタイマーをセット
                 setAlarm(timeArray);
+                return true; // 成功
             } catch (e) {
+                console.error("getTimesエラー:", e.message);
                 alert("時間の取得中にエラーが発生しました: " + e.message);
+                return false; // 失敗
             }
         }
+
 
         function setAlarm(timeArray) {
             try {
@@ -217,55 +222,60 @@
             }
         }
 
-        function nextProcess(timeId) {
-            try {
-                // スケジュールされたタイムアウトを削除
-                scheduledTimeouts = scheduledTimeouts.filter(item => item.timeId !== timeId);
+    function nextProcess(timeId) {
+    try {
+        // スケジュールされたタイムアウトを削除
+        scheduledTimeouts = scheduledTimeouts.filter(item => item.timeId !== timeId);
 
-                if (timeId.endsWith('end')) {
-                    // idに'end'がつくアラームの場合、再生を完全に停止
-                    stopAudio();
-                    console.log(`再生を停止しました（idが'end'で終了するアラーム）: ${timeId}`);
+        if (timeId.endsWith('end')) {
+            // idに'end'がつくアラームの場合、再生を完全に停止
+            stopAudio();
+            console.log(`再生を停止しました（idが'end'で終了するアラーム）: ${timeId}`);
 
-                    // ステータスを更新
-                    if (timeId === 'resttime-end') {
-                        statusElement.innerText = 'ステータス: 休憩時間 再生終了';
-                    } else if (timeId === 'fireflylight-end') {
-                        statusElement.innerText = 'ステータス: 蛍の光 再生終了';
-                    } else {
-                        statusElement.innerText = 'ステータス: 再生停止';
-                    }
-
-                } else if (timeId.includes('resttime')) {
-                    // idに'resttime'がつくアラームの場合、指定のURLの動画を埋め込み再生
-                    console.log(`YouTubeを埋め込み再生します（idに'resttime'が含まれるアラーム）: ${timeId}`);
-                    playYouTubeVideo();
-
-                    // ステータスを更新
-                    statusElement.innerText = 'ステータス: 休憩時間 再生開始処理中';
-
-                } else if (timeId.includes('fireflylight')) {
-                    // idに'fireflylight'がつくアラームの場合、既存の処理を実行
-                    console.log(`既存の処理を実行します（idに'fireflylight'が含まれるアラーム）: ${timeId}`);
-                    playAudioUntilNextAlarm();
-
-                    // ステータスを更新
-                    statusElement.innerText = 'ステータス: 蛍の光 再生開始処理中';
-                }
-
-                // すべての処理が終わったか確認
-                if (scheduledTimeouts.length === 0) {
-                    console.log("すべての処理が完了しました。自動停止します。");
-                    // 自動停止処理を実行
-                    stopAudio();
-                    resetVariables();
-                    statusElement.innerText = 'ステータス: 停止中';
-                }
-
-            } catch (e) {
-                alert("次のプロセスの実行中にエラーが発生しました: " + e.message);
+            // ステータスを更新
+            if (timeId === 'resttime-end') {
+                statusElement.innerText = 'ステータス: 休憩時間 再生終了';
+            } else if (timeId === 'fireflylight-end') {
+                statusElement.innerText = 'ステータス: 蛍の光 再生終了';
+            } else {
+                statusElement.innerText = 'ステータス: 再生停止';
             }
+
+        } else if (timeId.includes('resttime')) {
+            // idに'resttime'がつくアラームの場合、指定のURLの動画を埋め込み再生
+            console.log(`YouTubeを埋め込み再生します（idに'resttime'が含まれるアラーム）: ${timeId}`);
+            playYouTubeVideo();
+
+            // ステータスを更新
+            statusElement.innerText = 'ステータス: 休憩時間 再生開始処理中';
+
+        } else if (timeId.includes('fireflylight')) {
+            // idに'fireflylight'がつくアラームの場合、既存の処理を実行
+            console.log(`既存の処理を実行します（idに'fireflylight'が含まれるアラーム）: ${timeId}`);
+            playAudioUntilNextAlarm();
+
+            // ステータスを更新
+            statusElement.innerText = 'ステータス: 蛍の光 再生開始処理中';
         }
+
+        // すべての処理が終わったか確認
+        if (scheduledTimeouts.length === 0) {
+            console.log("すべての処理が完了しました。自動停止します。");
+            // 自動停止処理を実行
+            stopAudio();
+            resetVariables();
+            statusElement.innerText = 'ステータス: 停止中';
+
+            // 追加：アラートを表示し、ページをリロード
+            alert("すべての処理が完了しました。\n初期状態に戻ります。");
+            location.reload();
+        }
+
+    } catch (e) {
+        alert("次のプロセスの実行中にエラーが発生しました: " + e.message);
+    }
+    }
+
 
         function playYouTubeVideo() {
             try {
